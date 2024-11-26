@@ -30,15 +30,18 @@ const convertValue = ({
     (field) => fieldAffectsData(field) && field.name === 'id',
   )
 
-  if (customIDField) {
-    return value
+  if (!customIDField) {
+    try {
+      return new Types.ObjectId(value)
+    } catch (error) {
+      throw new APIError(
+        `Failed to create ObjectId from value: ${value}. Error: ${error.message}`,
+        400,
+      )
+    }
   }
 
-  try {
-    return new Types.ObjectId(value)
-  } catch {
-    return value
-  }
+  return value
 }
 
 const sanitizeRelationship = ({ config, field, locale, ref, value }) => {

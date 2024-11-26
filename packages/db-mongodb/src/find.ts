@@ -5,11 +5,11 @@ import { flattenWhereToOperators } from 'payload'
 
 import type { MongooseAdapter } from './index.js'
 
+import { getSession } from './getSession.js'
 import { buildSortParam } from './queries/buildSortParam.js'
 import { buildJoinAggregation } from './utilities/buildJoinAggregation.js'
 import { buildProjectionFromSelect } from './utilities/buildProjectionFromSelect.js'
-import { sanitizeInternalFields } from './utilities/sanitizeInternalFields.js'
-import { withSession } from './withSession.js'
+import { transform } from './utilities/transform.js'
 
 export const find: Find = async function find(
   this: MongooseAdapter,
@@ -29,7 +29,7 @@ export const find: Find = async function find(
 ) {
   const Model = this.collections[collection]
   const collectionConfig = this.payload.collections[collection].config
-  const options = await withSession(this, req)
+  const session = await getSession(this, req)
 
   let hasNearConstraint = false
 
@@ -37,6 +37,8 @@ export const find: Find = async function find(
     const constraints = flattenWhereToOperators(where)
     hasNearConstraint = constraints.some((prop) => Object.keys(prop).some((key) => key === 'near'))
   }
+
+  const fields = collectionConfig.fields
 
   let sort
   if (!hasNearConstraint) {
@@ -60,7 +62,7 @@ export const find: Find = async function find(
   const paginationOptions: PaginateOptions = {
     lean: true,
     leanWithId: true,
-    options,
+    options: { session },
     page,
     pagination,
     projection,
@@ -92,8 +94,8 @@ export const find: Find = async function find(
     paginationOptions.useCustomCountFn = () => {
       return Promise.resolve(
         Model.countDocuments(query, {
-          ...options,
           hint: { _id: 1 },
+          session,
         }),
       )
     }
@@ -127,13 +129,7 @@ export const find: Find = async function find(
     result = await Model.paginate(query, paginationOptions)
   }
 
-  const docs = JSON.parse(JSON.stringify(result.docs))
+  transform({ type: 'read', adapter: this, data: result.docs, fields })
 
-  return {
-    ...result,
-    docs: docs.map((doc) => {
-      doc.id = doc._id
-      return sanitizeInternalFields(doc)
-    }),
-  }
+  return result
 }
