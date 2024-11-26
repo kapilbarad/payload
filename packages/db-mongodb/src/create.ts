@@ -13,7 +13,7 @@ export const create: Create = async function create(
   const Model = this.collections[collection]
   const session = await getSession(this, req)
 
-  const fields = this.payload.collections[collection].config.fields
+  const fields = this.payload.collections[collection].config.flattenedFields
 
   if (this.payload.collections[collection].customIDType) {
     data._id = data.id

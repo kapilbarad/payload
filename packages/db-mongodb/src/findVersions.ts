@@ -54,7 +54,7 @@ export const findVersions: FindVersions = async function findVersions(
     where,
   })
 
-  const versionFields = buildVersionCollectionFields(this.payload.config, collectionConfig)
+  const versionFields = buildVersionCollectionFields(this.payload.config, collectionConfig, true)
   // useEstimatedCount is faster, but not accurate, as it ignores any filters. It is thus set to true if there are no filters.
   const useEstimatedCount = hasNearConstraint || !query || Object.keys(query).length === 0
   const paginationOptions: PaginateOptions = {
@@ -70,7 +70,7 @@ export const findVersions: FindVersions = async function findVersions(
     pagination,
     projection: buildProjectionFromSelect({
       adapter: this,
-      fields: buildVersionCollectionFields(this.payload.config, collectionConfig, true),
+      fields: versionFields,
       select,
     }),
     sort,

@@ -38,13 +38,13 @@ export const find: Find = async function find(
     hasNearConstraint = constraints.some((prop) => Object.keys(prop).some((key) => key === 'near'))
   }
 
-  const fields = collectionConfig.fields
+  const fields = collectionConfig.flattenedFields
 
   let sort
   if (!hasNearConstraint) {
     sort = buildSortParam({
       config: this.payload.config,
-      fields: collectionConfig.flattenedFields,
+      fields,
       locale,
       sort: sortArg || collectionConfig.defaultSort,
       timestamps: true,
@@ -73,7 +73,7 @@ export const find: Find = async function find(
   if (select) {
     paginationOptions.projection = buildProjectionFromSelect({
       adapter: this,
-      fields: collectionConfig.flattenedFields,
+      fields,
       select,
     })
   }

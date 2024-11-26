@@ -22,11 +22,11 @@ export const findOne: FindOne = async function findOne(
     where,
   })
 
-  const fields = collectionConfig.fields
+  const fields = collectionConfig.flattenedFields
 
   const projection = buildProjectionFromSelect({
     adapter: this,
-    fields: collectionConfig.flattenedFields,
+    fields,
     select,
   })
 

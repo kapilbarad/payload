@@ -56,10 +56,10 @@ export const queryDrafts: QueryDrafts = async function queryDrafts(
     where: combinedWhere,
   })
 
-  const versionFields = buildVersionCollectionFields(this.payload.config, collectionConfig)
+  const versionFields = buildVersionCollectionFields(this.payload.config, collectionConfig, true)
   const projection = buildProjectionFromSelect({
     adapter: this,
-    fields: buildVersionCollectionFields(this.payload.config, collectionConfig, true),
+    fields: versionFields,
     select,
   })
   // useEstimatedCount is faster, but not accurate, as it ignores any filters. It is thus set to true if there are no filters.

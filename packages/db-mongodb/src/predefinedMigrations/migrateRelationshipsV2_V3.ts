@@ -1,5 +1,5 @@
 import type { ClientSession, Model } from 'mongoose'
-import type { Field, PayloadRequest } from 'payload'
+import type { Field, FlattenedField, PayloadRequest } from 'payload'
 
 import { buildVersionCollectionFields, buildVersionGlobalFields } from 'payload'
 
@@ -17,7 +17,7 @@ const migrateModelWithBatching = async ({
 }: {
   adapter: MongooseAdapter
   batchSize: number
-  fields: Field[]
+  fields: FlattenedField[]
   Model: Model<any>
   session: ClientSession
 }): Promise<void> => {
@@ -117,7 +117,7 @@ export async function migrateRelationshipsV2_V3({
     await migrateModelWithBatching({
       adapter: db,
       batchSize,
-      fields: collection.fields,
+      fields: collection.flattenedFields,
       Model: db.collections[collection.slug],
       session,
     })
@@ -130,7 +130,7 @@ export async function migrateRelationshipsV2_V3({
       await migrateModelWithBatching({
         adapter: db,
         batchSize,
-        fields: buildVersionCollectionFields(config, collection),
+        fields: buildVersionCollectionFields(config, collection, true),
         Model: db.versions[collection.slug],
         session,
       })
@@ -156,7 +156,7 @@ export async function migrateRelationshipsV2_V3({
 
     // in case if the global doesn't exist in the database yet  (not saved)
     if (doc) {
-      transform({ type: 'write', adapter: db, data: doc, fields: global.fields })
+      transform({ type: 'write', adapter: db, data: doc, fields: global.flattenedFields })
 
       await GlobalsModel.collection.updateOne(
         {
@@ -175,7 +175,7 @@ export async function migrateRelationshipsV2_V3({
       await migrateModelWithBatching({
         adapter: db,
         batchSize,
-        fields: buildVersionGlobalFields(config, global),
+        fields: buildVersionGlobalFields(config, global, true),
         Model: db.versions[global.slug],
         session,
       })

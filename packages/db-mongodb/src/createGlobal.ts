@@ -13,7 +13,7 @@ export const createGlobal: CreateGlobal = async function createGlobal(
 
   const fields = this.payload.config.globals.find(
     (globalConfig) => globalConfig.slug === slug,
-  ).fields
+  ).flattenedFields
 
   transform({
     type: 'write',

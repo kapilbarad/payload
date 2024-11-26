@@ -29,6 +29,7 @@ export async function updateGlobalVersion<T extends TypeWithID>(
   const fields = buildVersionGlobalFields(
     this.payload.config,
     this.payload.config.globals.find((global) => global.slug === globalSlug),
+    true,
   )
 
   const query = await VersionModel.buildQuery({
@@ -51,11 +52,7 @@ export async function updateGlobalVersion<T extends TypeWithID>(
       ...optionsArgs,
       projection: buildProjectionFromSelect({
         adapter: this,
-        fields: buildVersionGlobalFields(
-          this.payload.config,
-          this.payload.config.globals.find((global) => global.slug === globalSlug),
-          true,
-        ),
+        fields,
         select,
       }),
       returnDocument: 'after',

@@ -1,4 +1,4 @@
-import type { Field, SanitizedConfig } from 'payload'
+import { flattenAllFields, type Field, type SanitizedConfig } from 'payload'
 
 import { Types } from 'mongoose'
 
@@ -351,7 +351,9 @@ describe('transform', () => {
 
     const mockAdapter = { payload: { config } } as MongooseAdapter
 
-    transform({ type: 'write', adapter: mockAdapter, data, fields: config.collections[0].fields })
+    const fields = flattenAllFields({ fields: config.collections[0].fields })
+
+    transform({ type: 'write', adapter: mockAdapter, data, fields })
 
     const flattenValuesAfter = Object.values(flattenRelationshipValues(data))
 
@@ -360,6 +362,6 @@ describe('transform', () => {
       expect(flattenValuesBefore[i]).toBe(value.toHexString())
     })
 
-    transform({ type: 'read', adapter: mockAdapter, data, fields: config.collections[0].fields })
+    transform({ type: 'read', adapter: mockAdapter, data, fields })
   })
 })

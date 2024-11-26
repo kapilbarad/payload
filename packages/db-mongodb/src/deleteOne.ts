@@ -18,12 +18,12 @@ export const deleteOne: DeleteOne = async function deleteOne(
     where,
   })
 
-  const fields = this.payload.collections[collection].config.fields
+  const fields = this.payload.collections[collection].config.flattenedFields
 
   const doc = await Model.collection.findOneAndDelete(query, {
     projection: buildProjectionFromSelect({
       adapter: this,
-      fields: this.payload.collections[collection].config.flattenedFields,
+      fields,
       select,
     }),
     session,

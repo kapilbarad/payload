@@ -36,6 +36,7 @@ export const createGlobalVersion: CreateGlobalVersion = async function createGlo
   const fields = buildVersionGlobalFields(
     this.payload.config,
     this.payload.config.globals.find((global) => global.slug === globalSlug),
+    true,
   )
 
   transform({

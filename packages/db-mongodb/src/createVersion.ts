@@ -37,6 +37,7 @@ export const createVersion: CreateVersion = async function createVersion(
   const fields = buildVersionCollectionFields(
     this.payload.config,
     this.payload.collections[collectionSlug].config,
+    true,
   )
 
   transform({

@@ -22,7 +22,7 @@ export const updateOne: UpdateOne = async function updateOne(
 ) {
   const where = id ? { id: { equals: id } } : whereArg
   const Model = this.collections[collection]
-  const { fields, flattenedFields } = this.payload.collections[collection].config
+  const fields = this.payload.collections[collection].config.flattenedFields
 
   const query = await Model.buildQuery({
     locale,
@@ -44,7 +44,7 @@ export const updateOne: UpdateOne = async function updateOne(
       { $set: data },
       {
         ...optionsArgs,
-        projection: buildProjectionFromSelect({ adapter: this, fields: flattenedFields, select }),
+        projection: buildProjectionFromSelect({ adapter: this, fields, select }),
         returnDocument: 'after',
         session: await getSession(this, req),
       },

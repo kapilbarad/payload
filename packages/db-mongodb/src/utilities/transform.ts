@@ -1,15 +1,15 @@
 import type {
   CollectionConfig,
-  Field,
+  FlattenedField,
   RelationshipField,
   SanitizedConfig,
-  TraverseFieldsCallback,
+  TraverseFlattenedFieldsCallback,
   UploadField,
 } from 'payload'
 
 import { Types } from 'mongoose'
-import { APIError, traverseFields } from 'payload'
-import { fieldAffectsData } from 'payload/shared'
+import { traverseFields } from 'payload'
+import { fieldAffectsData, fieldIsVirtual } from 'payload/shared'
 
 import type { MongooseAdapter } from '../index.js'
 
@@ -17,7 +17,7 @@ type Args = {
   adapter: MongooseAdapter
   collectionSlug?: string
   data: Record<string, unknown> | Record<string, unknown>[]
-  fields: Field[]
+  fields: FlattenedField[]
   globalSlug?: string
   insert?: boolean
   type: 'read' | 'write'
@@ -182,9 +182,31 @@ export const transform = ({ type, adapter, data, fields, globalSlug, insert }: A
     }
   }
 
-  const sanitize: TraverseFieldsCallback = ({ field, ref }) => {
+  const sanitize: TraverseFlattenedFieldsCallback = ({ field, ref }) => {
     if (!ref || typeof ref !== 'object') {
       return
+    }
+
+    if (type === 'write') {
+      if (
+        typeof ref[field.name] === 'undefined' &&
+        typeof field.defaultValue !== 'undefined' &&
+        typeof field.defaultValue !== 'function'
+      ) {
+        if (field.type === 'point') {
+          ref[field.name] = {
+            type: 'Point',
+            coordinates: field.defaultValue,
+          }
+        } else {
+          ref[field.name] = field.defaultValue
+        }
+      }
+
+      if (fieldIsVirtual(field)) {
+        delete ref[field.name]
+        return
+      }
     }
 
     if (field.type === 'date') {
@@ -193,7 +215,7 @@ export const transform = ({ type, adapter, data, fields, globalSlug, insert }: A
         if (value && value instanceof Date) {
           ref[field.name] = value.toISOString()
         }
-      } else if (field.name === 'updatedAt' && !ref[field.name]) {
+      } else if (field.name === 'updatedAt') {
         ref[field.name] = new Date()
       }
     }
@@ -238,5 +260,5 @@ export const transform = ({ type, adapter, data, fields, globalSlug, insert }: A
     }
   }
 
-  traverseFields({ callback: sanitize, fields, fillEmpty: false, ref: data })
+  traverseFields({ callback: sanitize, fillEmpty: false, flattenedFields: fields, ref: data })
 }

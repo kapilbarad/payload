@@ -24,6 +24,7 @@ export const updateVersion: UpdateVersion = async function updateVersion(
   const fields = buildVersionCollectionFields(
     this.payload.config,
     this.payload.collections[collection].config,
+    true,
   )
 
   const query = await VersionModel.buildQuery({
