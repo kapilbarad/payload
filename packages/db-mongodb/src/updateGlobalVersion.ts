@@ -49,7 +49,15 @@ export async function updateGlobalVersion<T extends TypeWithID>(
     { $set: versionData },
     {
       ...optionsArgs,
-      projection: buildProjectionFromSelect({ adapter: this, fields, select }),
+      projection: buildProjectionFromSelect({
+        adapter: this,
+        fields: buildVersionGlobalFields(
+          this.payload.config,
+          this.payload.config.globals.find((global) => global.slug === globalSlug),
+          true,
+        ),
+        select,
+      }),
       returnDocument: 'after',
       session: await getSession(this, req),
     },

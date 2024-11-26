@@ -21,12 +21,12 @@ export const findGlobal: FindGlobal = async function findGlobal(
     where: combineQueries({ globalType: { equals: slug } }, where),
   })
 
-  const fields = this.payload.globals.config.find((each) => each.slug === slug).fields
+  const { fields, flattenedFields } = this.payload.globals.config.find((each) => each.slug === slug)
 
   const doc = await Model.collection.findOne(query, {
     projection: buildProjectionFromSelect({
       adapter: this,
-      fields,
+      fields: flattenedFields,
       select,
     }),
     session: await getSession(this, req),

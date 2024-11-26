@@ -1,13 +1,26 @@
-import type { CollectionConfig, Field, SanitizedConfig, TraverseFieldsCallback } from 'payload'
+import type {
+  CollectionConfig,
+  Field,
+  RelationshipField,
+  SanitizedConfig,
+  TraverseFieldsCallback,
+  UploadField,
+} from 'payload'
 
 import { Types } from 'mongoose'
 import { APIError, traverseFields } from 'payload'
 import { fieldAffectsData } from 'payload/shared'
 
+import type { MongooseAdapter } from '../index.js'
+
 type Args = {
-  config: SanitizedConfig
-  data: Record<string, unknown>
+  adapter: MongooseAdapter
+  collectionSlug?: string
+  data: Record<string, unknown> | Record<string, unknown>[]
   fields: Field[]
+  globalSlug?: string
+  insert?: boolean
+  type: 'read' | 'write'
 }
 
 interface RelationObject {
@@ -20,31 +33,56 @@ function isValidRelationObject(value: unknown): value is RelationObject {
 }
 
 const convertValue = ({
+  type,
   relatedCollection,
   value,
 }: {
   relatedCollection: CollectionConfig
-  value: number | string
-}): number | string | Types.ObjectId => {
+  type: 'read' | 'write'
+  value: unknown
+}) => {
   const customIDField = relatedCollection.fields.find(
     (field) => fieldAffectsData(field) && field.name === 'id',
   )
 
-  if (!customIDField) {
+  if (type === 'read') {
+    if (value instanceof Types.ObjectId) {
+      return value.toHexString()
+    }
+
+    return value
+  }
+
+  if (customIDField) {
+    return value
+  }
+
+  if (typeof value === 'string') {
     try {
       return new Types.ObjectId(value)
-    } catch (error) {
-      throw new APIError(
-        `Failed to create ObjectId from value: ${value}. Error: ${error.message}`,
-        400,
-      )
+    } catch {
+      return value
     }
   }
 
   return value
 }
 
-const sanitizeRelationship = ({ config, field, locale, ref, value }) => {
+const sanitizeRelationship = ({
+  type,
+  config,
+  field,
+  locale,
+  ref,
+  value,
+}: {
+  config: SanitizedConfig
+  field: RelationshipField | UploadField
+  locale?: string
+  ref: Record<string, unknown>
+  type: 'read' | 'write'
+  value?: unknown
+}) => {
   let relatedCollection: CollectionConfig | undefined
   let result = value
 
@@ -56,14 +94,6 @@ const sanitizeRelationship = ({ config, field, locale, ref, value }) => {
 
   if (Array.isArray(value)) {
     result = value.map((val) => {
-      // Handle has many
-      if (relatedCollection && val && (typeof val === 'string' || typeof val === 'number')) {
-        return convertValue({
-          relatedCollection,
-          value: val,
-        })
-      }
-
       // Handle has many - polymorphic
       if (isValidRelationObject(val)) {
         const relatedCollectionForSingleValue = config.collections?.find(
@@ -74,6 +104,7 @@ const sanitizeRelationship = ({ config, field, locale, ref, value }) => {
           return {
             relationTo: val.relationTo,
             value: convertValue({
+              type,
               relatedCollection: relatedCollectionForSingleValue,
               value: val.value,
             }),
@@ -81,29 +112,37 @@ const sanitizeRelationship = ({ config, field, locale, ref, value }) => {
         }
       }
 
+      if (relatedCollection) {
+        return convertValue({
+          type,
+          relatedCollection,
+          value: val,
+        })
+      }
+
       return val
     })
   }
-
   // Handle has one - polymorphic
-  if (isValidRelationObject(value)) {
+  else if (isValidRelationObject(value)) {
     relatedCollection = config.collections?.find(({ slug }) => slug === value.relationTo)
 
     if (relatedCollection) {
       result = {
         relationTo: value.relationTo,
-        value: convertValue({ relatedCollection, value: value.value }),
+        value: convertValue({ type, relatedCollection, value: value.value }),
       }
     }
   }
-
   // Handle has one
-  if (relatedCollection && value && (typeof value === 'string' || typeof value === 'number')) {
+  else if (relatedCollection) {
     result = convertValue({
+      type,
       relatedCollection,
       value,
     })
   }
+
   if (locale) {
     ref[locale] = result
   } else {
@@ -111,14 +150,52 @@ const sanitizeRelationship = ({ config, field, locale, ref, value }) => {
   }
 }
 
-export const sanitizeRelationshipIDs = ({
-  config,
-  data,
-  fields,
-}: Args): Record<string, unknown> => {
+export const transform = ({ type, adapter, data, fields, globalSlug, insert }: Args) => {
+  if (Array.isArray(data)) {
+    for (let i = 0; i < data.length; i++) {
+      transform({ type, adapter, data: data[i], fields })
+    }
+    return
+  }
+
+  const {
+    payload: { config },
+  } = adapter
+
+  if (type === 'read') {
+    delete data['__v']
+    data.id = data._id
+    delete data['_id']
+
+    if (data.id instanceof Types.ObjectId) {
+      data.id = data.id.toHexString()
+    }
+  }
+
+  if (type === 'write') {
+    if (insert && !data.createdAt) {
+      data.createdAt = new Date()
+    }
+
+    if (globalSlug) {
+      data.globalType = globalSlug
+    }
+  }
+
   const sanitize: TraverseFieldsCallback = ({ field, ref }) => {
     if (!ref || typeof ref !== 'object') {
       return
+    }
+
+    if (field.type === 'date') {
+      if (type === 'read') {
+        const value = ref[field.name]
+        if (value && value instanceof Date) {
+          ref[field.name] = value.toISOString()
+        }
+      } else if (field.name === 'updatedAt' && !ref[field.name]) {
+        ref[field.name] = new Date()
+      }
     }
 
     if (field.type === 'relationship' || field.type === 'upload') {
@@ -137,16 +214,24 @@ export const sanitizeRelationshipIDs = ({
         for (const { code } of locales) {
           const value = ref[field.name][code]
           if (value) {
-            sanitizeRelationship({ config, field, locale: code, ref: fieldRef, value })
+            sanitizeRelationship({
+              type,
+              config,
+              field,
+              locale: code,
+              ref: fieldRef,
+              value,
+            })
           }
         }
       } else {
         // handle non-localized relationships
         sanitizeRelationship({
+          type,
           config,
           field,
           locale: undefined,
-          ref,
+          ref: ref as Record<string, unknown>,
           value: ref[field.name],
         })
       }
@@ -154,6 +239,4 @@ export const sanitizeRelationshipIDs = ({
   }
 
   traverseFields({ callback: sanitize, fields, fillEmpty: false, ref: data })
-
-  return data
 }

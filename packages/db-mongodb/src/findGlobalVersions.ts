@@ -115,7 +115,10 @@ export const findGlobalVersions: FindGlobalVersions = async function findGlobalV
     type: 'read',
     adapter: this,
     data: result.docs,
-    fields: versionFields,
+    fields: buildVersionGlobalFields(
+      this.payload.config,
+      this.payload.globals.config.find(({ slug }) => slug === global),
+    ),
   })
 
   return result

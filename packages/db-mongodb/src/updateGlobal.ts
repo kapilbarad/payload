@@ -11,7 +11,9 @@ export const updateGlobal: UpdateGlobal = async function updateGlobal(
   { slug, data, options: optionsArgs = {}, req = {} as PayloadRequest, select },
 ) {
   const Model = this.globals
-  const fields = this.payload.config.globals.find((global) => global.slug === slug).fields
+  const { fields, flattenedFields } = this.payload.config.globals.find(
+    (global) => global.slug === slug,
+  )
 
   const session = await getSession(this, req)
 
@@ -22,7 +24,7 @@ export const updateGlobal: UpdateGlobal = async function updateGlobal(
     { $set: data },
     {
       ...optionsArgs,
-      projection: buildProjectionFromSelect({ adapter: this, fields, select }),
+      projection: buildProjectionFromSelect({ adapter: this, fields: flattenedFields, select }),
       returnDocument: 'after',
       session,
     },
