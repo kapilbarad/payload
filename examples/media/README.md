@@ -1,4 +1,4 @@
-# Payload Blank Template
+# Payload Media Example
 
 ## Development
 
